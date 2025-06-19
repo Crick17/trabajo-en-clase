@@ -8,13 +8,14 @@ public class VentanaSimulacionAtaque extends JFrame {
     private final GestorAtaques gestor;
     private int nivel = 1;
     private final List<String> camino = new ArrayList<>();
+    private final List<List<String>> opcionesPorNivel = new ArrayList<>();
     private final Random random = new Random();
 
     public VentanaSimulacionAtaque(String objetivo) {
         this.objetivo = objetivo;
         this.gestor = new GestorAtaques();
         setTitle("Simulación de Ataque - Ciberseguridad");
-        setSize(700, 700);
+        setSize(900, 800);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         siguienteNivel(null);
@@ -28,26 +29,31 @@ public class VentanaSimulacionAtaque extends JFrame {
         }
 
         List<Ataque> opciones = gestor.generarOpcionesNivel(nivel, opcionAnterior);
+        List<String> nombres = new ArrayList<>();
+        for (Ataque a : opciones) {
+            nombres.add(a.nombre + " - " + a.descripcion);
+        }
+        opcionesPorNivel.add(nombres);
+
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.add(new JLabel("Nivel " + nivel + ": Selecciona un método de ataque"));
 
         for (Ataque atk : opciones) {
+            String text = atk.nombre + " - " + atk.descripcion;
             JButton boton = new JButton("<html><center>" + atk.nombre + "<br><small>" + atk.descripcion + "</small></center></html>");
             boton.setAlignmentX(Component.CENTER_ALIGNMENT);
-            boton.setMaximumSize(new Dimension(600, 60));
+            boton.setMaximumSize(new Dimension(700, 60));
             boton.addActionListener(e -> {
-                // Validar si opción es correcta (random)
                 if (esOpcionCorrecta()) {
+                    camino.add(text);
                     nivel++;
-                    camino.add(atk.nombre + " - " + atk.descripcion);
-                    siguienteNivel(atk.nombre);
+                    SwingUtilities.invokeLater(() -> siguienteNivel(atk.nombre));
                 } else {
                     JOptionPane.showMessageDialog(this,
-                            "Sistema Bloqueado. Escoga otro camino.",
+                            "❌ Sistema Bloqueado. Escoge otro camino.",
                             "Bloqueo de Seguridad",
                             JOptionPane.WARNING_MESSAGE);
-                    // No avanzar, dejar nivel actual para elegir otra opción
                 }
             });
             panel.add(Box.createVerticalStrut(10));
@@ -64,7 +70,6 @@ public class VentanaSimulacionAtaque extends JFrame {
     }
 
     private boolean esOpcionCorrecta() {
-        // 70% de probabilidades que sea correcta, 30% bloqueada
         return random.nextDouble() < 0.7;
     }
 
@@ -72,83 +77,80 @@ public class VentanaSimulacionAtaque extends JFrame {
         getContentPane().removeAll();
         setLayout(new BorderLayout());
 
-        JLabel titulo = new JLabel("Árbol de Decisiones del Ataque: " + objetivo, JLabel.CENTER);
-        titulo.setFont(new Font("SansSerif", Font.BOLD, 20));
+        JLabel titulo = new JLabel("🔐 Árbol de Decisiones del Ataque: " + objetivo, JLabel.CENTER);
+        titulo.setFont(new Font("SansSerif", Font.BOLD, 22));
         titulo.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         add(titulo, BorderLayout.NORTH);
 
         JPanel panelArbol = new JPanel() {
-            private final Color[] coloresNiveles = {
-                    new Color(70, 130, 180),
-                    new Color(46, 139, 87),
-                    new Color(218, 112, 214),
-                    new Color(255, 140, 0),
-                    new Color(220, 20, 60)
-            };
+            private final Color OPCION = new Color(200, 200, 200);
+            private final Color ELEGIDA = new Color(0, 160, 0);
+            private final Color OBJETIVO = new Color(180, 0, 0);
 
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                int width = getWidth();
-                int startX = width / 2;
-                int startY = getHeight() - 60;
-                int stepY = 100;
-                int ovalWidth = 550;
-                int ovalHeight = 50;
+                int W = getWidth(), H = getHeight();
+                int levels = opcionesPorNivel.size();
+                int spacingY = (H - 100) / (levels + 1);
+                int ovalW = 280, ovalH = 50;
 
-                g2.setFont(new Font("SansSerif", Font.BOLD, 14));
+                for (int lvl = 0; lvl < levels; lvl++) {
+                    List<String> lista = opcionesPorNivel.get(lvl);
+                    int count = lista.size();
+                    for (int j = 0; j < count; j++) {
+                        String s = lista.get(j);
+                        int x = (j + 1) * W / (count + 1) - ovalW / 2;
+                        int y = 80 + (lvl + 1) * spacingY - ovalH / 2;
 
-                for (int i = 0; i < camino.size(); i++) {
-                    int x = startX - ovalWidth / 2;
-                    int y = startY - (i * stepY);
+                        boolean elegido = (lvl < camino.size() && camino.get(lvl).equals(s));
+                        g2.setColor(elegido ? ELEGIDA : OPCION);
+                        g2.fillRoundRect(x, y, ovalW, ovalH, 30, 30);
 
-                    Color nivelColor = coloresNiveles[i % coloresNiveles.length];
-                    g2.setColor(nivelColor);
-                    g2.fillRoundRect(x, y, ovalWidth, ovalHeight, 30, 30);
+                        g2.setColor(Color.BLACK);
+                        g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
+                        drawStringMultiLine(g2, s, x + ovalW / 2, y + ovalH / 2);
 
-                    g2.setColor(Color.WHITE);
-                    drawStringMultiLine(g2, camino.get(i), x + ovalWidth / 2, y + ovalHeight / 2);
-
-                    if (i < camino.size() - 1) {
-                        g2.setColor(Color.DARK_GRAY);
-                        g2.setStroke(new BasicStroke(3));
-                        int lineX = startX;
-                        int lineY1 = y;
-                        int lineY2 = y - stepY + ovalHeight;
-                        g2.drawLine(lineX, lineY1, lineX, lineY2);
+                        // Conexiones desde nivel anterior
+                        if (lvl > 0) {
+                            List<String> prev = opcionesPorNivel.get(lvl - 1);
+                            int px = (j % prev.size() + 1) * W / (prev.size() + 1);
+                            int py = 80 + lvl * spacingY;
+                            int cx = x + ovalW / 2;
+                            int cy = y;
+                            g2.setColor(Color.GRAY);
+                            g2.setStroke(new BasicStroke(2));
+                            g2.drawLine(px, py, cx, cy);
+                        }
                     }
                 }
 
-                int finalY = startY - (camino.size() * stepY);
-                int objWidth = 400;
-                int objHeight = 60;
-                int objX = startX - objWidth / 2;
-
-                g2.setColor(new Color(139, 0, 0));
-                g2.fillRoundRect(objX, finalY, objWidth, objHeight, 40, 40);
-
+                // Dibuja objetivo
+                int ox = W / 2 - ovalW / 2, oy = 40;
+                g2.setColor(OBJETIVO);
+                g2.fillRoundRect(ox, oy, ovalW, ovalH, 30, 30);
                 g2.setColor(Color.WHITE);
-                g2.setFont(new Font("SansSerif", Font.BOLD, 18));
-                drawStringMultiLine(g2, "🎯 Objetivo:\n" + objetivo, objX + objWidth / 2, finalY + objHeight / 2);
+                g2.setFont(new Font("SansSerif", Font.BOLD, 14));
+                drawStringMultiLine(g2, "🎯 Objetivo: " + objetivo, W / 2, oy + ovalH / 2);
             }
 
-            private void drawStringMultiLine(Graphics2D g2, String text, int xCenter, int yCenter) {
+            private void drawStringMultiLine(Graphics2D g2, String text, int cx, int cy) {
                 String[] lines = text.split(" - ");
                 FontMetrics fm = g2.getFontMetrics();
                 int totalHeight = lines.length * fm.getHeight();
-                int y = yCenter - totalHeight / 2 + fm.getAscent();
-
+                int y = cy - totalHeight / 2 + fm.getAscent();
                 for (String line : lines) {
-                    int lineWidth = fm.stringWidth(line);
-                    g2.drawString(line, xCenter - lineWidth / 2, y);
+                    int w = fm.stringWidth(line);
+                    g2.drawString(line, cx - w / 2, y);
                     y += fm.getHeight();
                 }
             }
         };
 
-        panelArbol.setPreferredSize(new Dimension(700, 700));
+        // ✅ FIX: Calcular la altura del panel en base al número de niveles
+        panelArbol.setPreferredSize(new Dimension(900, opcionesPorNivel.size() * 150 + 200));
         add(new JScrollPane(panelArbol), BorderLayout.CENTER);
 
         revalidate();
